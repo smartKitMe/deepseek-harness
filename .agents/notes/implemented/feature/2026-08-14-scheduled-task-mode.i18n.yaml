@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-14-scheduled-task-mode.md
+2026-08-14-scheduled-task-mode.md: e1fd0f53f98fc1fd4f7db09dbbaaa58f4fef9c30
+2026-08-14-scheduled-task-mode.zh.md: 8f480b63abe7dcf83350d85b97119453465d2a8b

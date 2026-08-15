@@ -34,6 +34,9 @@
       "path": "../../feedback/message-feedback"
     },
     {
+      "path": "../../schedule/scheduled-task"
+    },
+    {
       "path": "../../host/plugin-inventory"
     },
     {

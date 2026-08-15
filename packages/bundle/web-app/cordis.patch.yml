@@ -66,6 +66,11 @@
       config:
         maxNoteBytes: 8192
 
+    # Durable cross-session scheduled tasks: CRUD + the scheduler loop that
+    # starts/resumes an agent on schedule. Composed after storage-domain.
+    - id: scheduled-task
+      name: '@deepseek-ai/dsh-scheduled-task'
+
     # Browser Session export: `/export` command plus the shared download dialog.
     - id: session-log-download
       name: '@deepseek-ai/dsh-session-log-export'
@@ -252,6 +257,11 @@
 
     - id: ui-permission
       name: '@deepseek-ai/dsh-client-ui-permission-presets'
+
+    # Scheduled-task settings section: list/create/edit/run tasks over the
+    # scheduledTasks Remote.
+    - id: ui-scheduled-task
+      name: '@deepseek-ai/dsh-client-ui-scheduled-task'
 
     # The agent-preset row in General settings: the default preset for
     # sessions created later. Absent a roster it renders nothing.
