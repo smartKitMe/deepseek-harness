@@ -69,6 +69,7 @@ export const scheduledTaskRecordSchema = z.object({
   model: modelSchema,
   permission: z.string().min(1),
   conversation: conversationSchema,
+  cwd: z.string().min(1).optional(),
   enabled: z.boolean(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),

@@ -109,7 +109,7 @@ export async function runScheduledTask(
       sessionId,
       agentOptions: { provider: selection.provider, model: selection.model },
       meta: {
-        cwd: process.cwd(),
+        cwd: record.cwd ?? process.cwd(),
         ...presetId === undefined ? {} : { agentPreset: presetId },
       },
       setup: composeSetup(ctx, selection, presetId),

@@ -6,6 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto'
+import { isAbsolute } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-session-persistence'
@@ -162,6 +163,19 @@ function resolveConversation(value: ConversationMode): ConversationMode {
   return value
 }
 
+/** Validate a working directory: blank means the host default, non-blank must be absolute. */
+function resolveCwd(value: string): string | undefined {
+  const trimmed = value.trim()
+  if (trimmed === '') return undefined
+  if (!isAbsolute(trimmed)) {
+    throw new ScheduleValidationError({
+      code: 'invalid_cwd',
+      message: 'working directory must be an absolute path.',
+    })
+  }
+  return trimmed
+}
+
 /**
  * Durable scheduled-task service (`ctx.scheduledTasks`): CRUD plus the
  * scheduler loop that starts a run when a task comes due. Requires the
@@ -249,7 +263,9 @@ export class ScheduledTaskService extends TypertRemoteService {
       model?: ModelRoute
       permission?: string
       conversation?: ConversationMode
+      cwd?: string
     } = {}
+    let clearCwd = false
     try {
       if (request.name !== undefined) {
         const name = resolveName(request.name)
@@ -275,11 +291,25 @@ export class ScheduledTaskService extends TypertRemoteService {
         const conversation = resolveConversation(request.conversation)
         if (!sameJson(conversation, existing.conversation)) changes.conversation = conversation
       }
+      if (request.cwd !== undefined) {
+        const cwd = resolveCwd(request.cwd)
+        if (cwd !== existing.cwd) {
+          if (cwd === undefined) clearCwd = true
+          else changes.cwd = cwd
+        }
+      }
     } catch (error: unknown) {
       return this.validationFailure(error)
     }
-    if (Object.keys(changes).length === 0) return success(snapshotRecord(existing))
-    const next: ScheduledTaskRecord = { ...existing, ...changes, updatedAt: new Date().toISOString() }
+    if (Object.keys(changes).length === 0 && !clearCwd) return success(snapshotRecord(existing))
+    const updatedAt = new Date().toISOString()
+    let next: ScheduledTaskRecord
+    if (clearCwd) {
+      const { cwd: _clearedCwd, ...withoutCwd } = existing
+      next = { ...withoutCwd, ...changes, updatedAt }
+    } else {
+      next = { ...existing, ...changes, updatedAt }
+    }
     await table.put(next.id, next)
     this.runtime?.requestDrive()
     return success(snapshotRecord(next))
@@ -336,6 +366,7 @@ export class ScheduledTaskService extends TypertRemoteService {
     }
     try {
       const now = new Date().toISOString()
+      const cwd = request.cwd === undefined ? undefined : resolveCwd(request.cwd)
       const record: ScheduledTaskRecord = {
         id: nextId(),
         name: resolveName(request.name),
@@ -344,6 +375,7 @@ export class ScheduledTaskService extends TypertRemoteService {
         model: resolveModel(request.model),
         permission: this.resolvePermission(request.permission),
         conversation: resolveConversation(request.conversation),
+        ...cwd === undefined ? {} : { cwd },
         enabled: request.enabled ?? true,
         createdAt: now,
         updatedAt: now,

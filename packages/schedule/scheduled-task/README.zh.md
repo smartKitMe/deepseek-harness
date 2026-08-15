@@ -12,7 +12,7 @@
 
 ## 持久状态
 
-此包拥有版本 0 的 `scheduled_task` 域：单张 `tasks` 表，以稳定的 `ScheduledTaskId` 为键。每条记录包含已 trim 的 `name`、`prompt`、可区分的 `schedule`（`cron`：`expression` + IANA `timeZone`；或 `interval`：不小于配置下限的正安全整数 `everySeconds`）、`model` 路由（`provider`/`model` 加可选 `reasoningEffort`）、`permission` 预设名、`conversation` 模式（`new`、`task-session`，或带 `sessionId` 的 `session`）、`enabled`，以及创建/更新时间戳。
+此包拥有版本 0 的 `scheduled_task` 域：单张 `tasks` 表，以稳定的 `ScheduledTaskId` 为键。每条记录包含已 trim 的 `name`、`prompt`、可区分的 `schedule`（`cron`：`expression` + IANA `timeZone`；或 `interval`：不小于配置下限的正安全整数 `everySeconds`）、`model` 路由（`provider`/`model` 加可选 `reasoningEffort`）、`permission` 预设名、`conversation` 模式（`new`、`task-session`，或带 `sessionId` 的 `session`）、可选的绝对路径 `cwd`（缺省时使用宿主进程工作目录）、`enabled`，以及创建/更新时间戳。
 
 调度器还会在同一条记录上记录运行状态：`lastRunAt`、最近一次运行使用的 `lastRunSessionId`，以及运行启动失败时的 `lastRunError`。这些是运行路径唯一会写入的字段；域 schema 会在重新打开时校验每一条记录。
 
@@ -22,13 +22,13 @@
 
 ## 运行生命周期
 
-一次运行会组合目标 agent：`new` 对话铸造全新会话，`task-session` 在已存在专属会话时复用（首次运行时创建），`session` 对话复用指定会话。每次运行会安装任务固定的模型选择，为新建 agent 挂载默认预设、为复用 agent 挂载其记录的预设，应用任务的权限预设，然后以一条 user 角色消息入队提示词并 flush 会话。
+一次运行会组合目标 agent：`new` 对话铸造全新会话，`task-session` 在已存在专属会话时复用（首次运行时创建），`session` 对话复用指定会话。每次运行会安装任务固定的模型选择，为新建 agent 挂载默认预设、为复用 agent 挂载其记录的预设，应用任务的权限预设，然后以一条 user 角色消息入队提示词并 flush 会话。新建运行的会话会把任务的 `cwd` 记录为工作目录；任务未设置时回退到宿主进程工作目录。
 
 运行确认返回会话 id；提示词的助手输出出现在该会话的普通转录中。启动运行不会等待模型完成。
 
 ## Remote API
 
-`ctx.scheduledTasks` 以 Typert Remote 方法暴露 `list`、`create`、`update`、`delete`、`setEnabled`、`runNow`。每个操作返回 `{ ok, value | error }` 联合；拒绝携带稳定错误码（`invalid_name`、`invalid_prompt`、`invalid_schedule`、`invalid_time_zone`、`invalid_model`、`invalid_permission`、`invalid_conversation`、`task_not_found`、`internal`）。生成的 Remote 客户端即 Web UI 的管理面。
+`ctx.scheduledTasks` 以 Typert Remote 方法暴露 `list`、`create`、`update`、`delete`、`setEnabled`、`runNow`。每个操作返回 `{ ok, value | error }` 联合；拒绝携带稳定错误码（`invalid_name`、`invalid_prompt`、`invalid_schedule`、`invalid_time_zone`、`invalid_model`、`invalid_permission`、`invalid_conversation`、`invalid_cwd`、`task_not_found`、`internal`）。生成的 Remote 客户端即 Web UI 的管理面。
 
 ## 已知限制与后续工作
 

@@ -80,6 +80,8 @@ export interface ScheduledTaskRecord {
   readonly permission: string
   /** Conversation-reuse mode. */
   readonly conversation: ConversationMode
+  /** Absolute working directory of every run; absent runs in the host process cwd. */
+  readonly cwd?: string
   /** Whether the scheduler may fire this task. */
   readonly enabled: boolean
   /** ISO-8601 creation instant. */
@@ -109,6 +111,7 @@ export type ScheduledTaskErrorCode =
   | 'invalid_model'
   | 'invalid_permission'
   | 'invalid_conversation'
+  | 'invalid_cwd'
   | 'task_not_found'
   | 'internal'
 
@@ -135,6 +138,7 @@ export interface ScheduledTaskCreateRequest {
   readonly model: ScheduledTaskModel
   readonly permission: string
   readonly conversation: ConversationMode
+  readonly cwd?: string
   readonly enabled?: boolean
 }
 
@@ -147,6 +151,7 @@ export interface ScheduledTaskUpdateRequest {
   readonly model?: ScheduledTaskModel
   readonly permission?: string
   readonly conversation?: ConversationMode
+  readonly cwd?: string
 }
 
 /** Delete request. */

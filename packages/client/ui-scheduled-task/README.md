@@ -2,11 +2,11 @@
 
 English | [中文](README.zh.md)
 
-A settings section for managing durable scheduled tasks. It lists the tasks the `dsh-scheduled-task` service owns and edits them through the generated Remote: name, prompt, cron or fixed-interval recurrence, model route, permission preset, and conversation mode (new session, task-dedicated session, or a specific session). Each row also runs a task immediately, toggles it on or off, or deletes it.
+A settings section for managing durable scheduled tasks. It lists the tasks the `dsh-scheduled-task` service owns and edits them through the generated Remote: name, prompt, cron or fixed-interval recurrence, model route, permission preset, conversation mode (new session, task-dedicated session, or a specific session), and an optional absolute working directory (blank uses the host default). Each row also runs a task immediately, toggles it on or off, or deletes it.
 
 ## Composition
 
-This package registers one `settings.section` entry (`id: scheduled-task`). Its browser half requires `slots`, `locale`, `connection`, and `remote`; the scheduled-task namespace is mounted by the `dsh-api-remotes` client assembly. The node half is an empty apply — the plugin exists in the host graph so its `dsh.client` row can be scanned into the browser roster.
+This package registers one `settings.section` entry (`id: scheduled-task`). Its browser half requires `slots`, `locale`, `connection`, `remote`, and the `remote.scheduledTasks` namespace; the namespace is mounted by the `dsh-api-remotes` client assembly. The node half is an empty apply — the plugin exists in the host graph so its `dsh.client` row can be scanned into the browser roster.
 
 ## Model Experience
 

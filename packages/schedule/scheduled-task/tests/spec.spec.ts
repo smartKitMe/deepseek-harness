@@ -42,6 +42,11 @@ describe('scheduledTaskRecordSchema', () => {
     })).conversation).toEqual({ kind: 'session', sessionId: 'session-1' })
   })
 
+  it('accepts an absolute cwd and rejects a blank one', () => {
+    expect(scheduledTaskRecordSchema.parse(record({ cwd: '/srv/reports' })).cwd).toBe('/srv/reports')
+    expect(() => scheduledTaskRecordSchema.parse(record({ cwd: '' }))).toThrow()
+  })
+
   it('rejects a blank name', () => {
     expect(() => scheduledTaskRecordSchema.parse(record({ name: '' }))).toThrow()
   })

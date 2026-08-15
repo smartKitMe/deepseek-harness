@@ -12,7 +12,7 @@ The service opens the `scheduled_task` domain through `ctx.storageDomain`, then 
 
 ## Durable state
 
-The package owns the version-0 `scheduled_task` domain: a single `tasks` table keyed by a stable `ScheduledTaskId`. One record carries the trimmed `name`, `prompt`, a discriminated `schedule` (`cron` with `expression` + IANA `timeZone`, or `interval` with a positive safe-integer `everySeconds` at least the configured minimum), the `model` route (`provider`/`model` plus optional `reasoningEffort`), the `permission` preset name, the `conversation` mode (`new`, `task-session`, or `session` with a `sessionId`), `enabled`, and creation/update timestamps.
+The package owns the version-0 `scheduled_task` domain: a single `tasks` table keyed by a stable `ScheduledTaskId`. One record carries the trimmed `name`, `prompt`, a discriminated `schedule` (`cron` with `expression` + IANA `timeZone`, or `interval` with a positive safe-integer `everySeconds` at least the configured minimum), the `model` route (`provider`/`model` plus optional `reasoningEffort`), the `permission` preset name, the `conversation` mode (`new`, `task-session`, or `session` with a `sessionId`), an optional absolute `cwd` (absent runs use the host process working directory), `enabled`, and creation/update timestamps.
 
 The scheduler also records run state on the same record: `lastRunAt`, the `lastRunSessionId` the latest run used, and a `lastRunError` when a run failed to start. These are the only fields the run path writes; the domain schema validates every record on reopen.
 
@@ -22,13 +22,13 @@ The loop reads the enabled task set before every wake. A `cron` rule computes it
 
 ## Run lifecycle
 
-A run composes the target agent: a `new` conversation mints a fresh session, a `task-session` resumes its dedicated session once one exists (creating it on the first run), and a `session` conversation resumes the named session. Each run installs the task's fixed model selection, mounts the default preset for a fresh agent or the recorded preset for a resumed one, applies the task's permission preset, then queues the prompt as one user-role message and flushes the session.
+A run composes the target agent: a `new` conversation mints a fresh session, a `task-session` resumes its dedicated session once one exists (creating it on the first run), and a `session` conversation resumes the named session. Each run installs the task's fixed model selection, mounts the default preset for a fresh agent or the recorded preset for a resumed one, applies the task's permission preset, then queues the prompt as one user-role message and flushes the session. A fresh run's session records the task's `cwd` as its working directory, falling back to the host process working directory when the task leaves it unset.
 
 The run acknowledgement returns the session id; the prompt's assistant output appears in that session's ordinary transcript. Starting a run does not await the model.
 
 ## Remote API
 
-`ctx.scheduledTasks` exposes `list`, `create`, `update`, `delete`, `setEnabled`, and `runNow` as Typert Remote methods. Every operation returns a `{ ok, value | error }` union; rejections carry stable codes (`invalid_name`, `invalid_prompt`, `invalid_schedule`, `invalid_time_zone`, `invalid_model`, `invalid_permission`, `invalid_conversation`, `task_not_found`, `internal`). The generated Remote client is the Web UI's management surface.
+`ctx.scheduledTasks` exposes `list`, `create`, `update`, `delete`, `setEnabled`, and `runNow` as Typert Remote methods. Every operation returns a `{ ok, value | error }` union; rejections carry stable codes (`invalid_name`, `invalid_prompt`, `invalid_schedule`, `invalid_time_zone`, `invalid_model`, `invalid_permission`, `invalid_conversation`, `invalid_cwd`, `task_not_found`, `internal`). The generated Remote client is the Web UI's management surface.
 
 ## Known Limitations and Deferred Work
 

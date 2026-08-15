@@ -10,11 +10,11 @@ Status: implemented
 
 ## Decision
 
-`@deepseek-ai/dsh-scheduled-task` 是一个持久化的跨会话调度器。任务定义保存在 `storage-domain` 表里（以带品牌的 `ScheduledTaskId` 为键），因此可跨重启存活，也不属于任何会话。一条记录包含已 trim 的 `name` 与 `prompt`、可区分的 `schedule`（`cron`：表达式 + IANA 时区；或 `interval`：带下限的 `everySeconds`）、`model` 路由、`permission` 预设名、`conversation` 模式（`new`、`task-session`，或带 `sessionId` 的 `session`）、`enabled`，以及运行状态（`lastRunAt`、`lastRunSessionId`、`lastRunError`）。
+`@deepseek-ai/dsh-scheduled-task` 是一个持久化的跨会话调度器。任务定义保存在 `storage-domain` 表里（以带品牌的 `ScheduledTaskId` 为键），因此可跨重启存活，也不属于任何会话。一条记录包含已 trim 的 `name` 与 `prompt`、可区分的 `schedule`（`cron`：表达式 + IANA 时区；或 `interval`：带下限的 `everySeconds`）、`model` 路由、`permission` 预设名、`conversation` 模式（`new`、`task-session`，或带 `sessionId` 的 `session`）、可选的绝对路径 `cwd`（缺省时在宿主进程工作目录运行）、`enabled`，以及运行状态（`lastRunAt`、`lastRunSessionId`、`lastRunError`）。
 
 一个全局调度循环在每次唤醒前重新读取启用的任务集合，并为最早的到期时点武装一个分段 timer。`cron` 规则通过 `croner` 计算下一次匹配；`interval` 规则在最近一次运行后 `everySeconds` 运行。到期任务串行执行；失败的运行记录 `lastRunError` 并推进 `lastRunAt`，使故障任务不会热循环。该循环是进程内的投影——冷启动部署在启动时计算下一个未来运行，不重放错过的积压。
 
-一次运行通过现有的 `ctx.agents.create`/`resume` 边界组合目标 agent：`new` 会话铸造全新 Session，`task-session` 在已存在专属会话时复用它（首次运行时创建），`session` 复用指定会话。每次运行安装任务固定的模型选择，为新建 agent 挂载默认预设、为复用 agent 挂载其记录的预设，应用任务的权限预设，然后以一条 user 角色消息入队提示词并 flush 会话。启动运行不等待模型。
+一次运行通过现有的 `ctx.agents.create`/`resume` 边界组合目标 agent：`new` 会话铸造全新 Session，`task-session` 在已存在专属会话时复用它（首次运行时创建），`session` 复用指定会话。每次运行安装任务固定的模型选择，为新建 agent 挂载默认预设、为复用 agent 挂载其记录的预设，应用任务的权限预设，然后以一条 user 角色消息入队提示词并 flush 会话。新建运行把任务的 `cwd` 记录为会话工作目录，未设置时回退到宿主进程工作目录。启动运行不等待模型。
 
 `ctx.scheduledTasks` 以 Typert Remote 方法暴露 `list`、`create`、`update`、`delete`、`setEnabled`、`runNow`，返回 `{ ok, value | error }` 联合。`@deepseek-ai/dsh-client-ui-scheduled-task` 在该 Remote 之上注册一个 `settings.section` 页面，并与其选择器所需的模型目录和权限 Settings 命名空间连接。
 

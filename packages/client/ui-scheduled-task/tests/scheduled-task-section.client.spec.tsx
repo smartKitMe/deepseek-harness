@@ -191,6 +191,17 @@ describe('the task list', () => {
     expect(within(row).getByText(/2026/)).toBeTruthy()
   })
 
+  it('shows the working directory or the default', () => {
+    renderSection({
+      tasks: [
+        record({ cwd: '/srv/reports' }),
+        record({ id: 'task-2' as ScheduledTaskRecord['id'], name: '无目录' }),
+      ],
+    })
+    expect(within(rowFor('每日日报')).getByText('/srv/reports')).toBeTruthy()
+    expect(within(rowFor('无目录')).getByText(zh.cwdDefault)).toBeTruthy()
+  })
+
   it('opens the delete confirmation and cancels it', () => {
     const actions = renderSection({ tasks: [record()] })
 
@@ -334,6 +345,21 @@ describe('the create form', () => {
     })
   })
 
+  it('submits an explicit working directory', async () => {
+    const actions = renderSection()
+
+    fireEvent.click(screen.getByRole('button', { name: zh.add }))
+    fireEvent.change(screen.getByPlaceholderText(zh.namePlaceholder), { target: { value: '日报' } })
+    fireEvent.change(screen.getByPlaceholderText(zh.promptPlaceholder), { target: { value: '总结' } })
+    fireEvent.change(screen.getByRole('combobox', { name: zh.model }), { target: { value: 'deepseek-official\u0000deepseek-v4-flash' } })
+    fireEvent.change(screen.getByPlaceholderText(zh.cwdPlaceholder), { target: { value: ' /srv/reports ' } })
+    fireEvent.click(screen.getByRole('button', { name: zh.add }))
+
+    await waitFor(() => {
+      expect(actions.create).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/srv/reports' }))
+    })
+  })
+
   it('shows a save failure and keeps the form open', async () => {
     const actions = makeActions()
     actions.create.mockRejectedValueOnce(new Error('refused'))
@@ -385,7 +411,7 @@ describe('the create form', () => {
 describe('the edit form', () => {
   it('seeds cron and session fields from the record and updates through the controller', async () => {
     const actions = renderSection({
-      tasks: [record({ conversation: { kind: 'session', sessionId: 'session-9' as never } })],
+      tasks: [record({ conversation: { kind: 'session', sessionId: 'session-9' as never }, cwd: '/srv/reports' })],
     })
 
     fireEvent.click(within(rowFor('每日日报')).getByRole('button', { name: zh.edit }))
@@ -393,6 +419,7 @@ describe('the edit form', () => {
     expect(screen.getByPlaceholderText(zh.cronExpressionPlaceholder)).toHaveProperty('value', '0 9 * * *')
     expect(screen.getByPlaceholderText(zh.timeZone)).toHaveProperty('value', 'UTC')
     expect(screen.getByPlaceholderText(zh.sessionIdPlaceholder)).toHaveProperty('value', 'session-9')
+    expect(screen.getByPlaceholderText(zh.cwdPlaceholder)).toHaveProperty('value', '/srv/reports')
 
     fireEvent.change(screen.getByPlaceholderText(zh.namePlaceholder), { target: { value: '改名' } })
     fireEvent.click(screen.getByRole('button', { name: zh.save }))
@@ -403,6 +430,7 @@ describe('the edit form', () => {
         name: '改名',
         schedule: { kind: 'cron', expression: '0 9 * * *', timeZone: 'UTC' },
         conversation: { kind: 'session', sessionId: 'session-9' },
+        cwd: '/srv/reports',
       }))
     })
   })

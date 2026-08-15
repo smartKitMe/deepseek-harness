@@ -42,6 +42,7 @@ interface Draft {
   permission: string
   conversationKind: ConversationMode['kind']
   sessionId: string
+  cwd: string
 }
 
 /** A blank create draft. */
@@ -58,6 +59,7 @@ function emptyDraft(): Draft {
     permission: '',
     conversationKind: 'new',
     sessionId: '',
+    cwd: '',
   }
 }
 
@@ -75,6 +77,7 @@ function draftOf(record: ScheduledTaskRecord): Draft {
     permission: record.permission,
     conversationKind: record.conversation.kind,
     sessionId: record.conversation.kind === 'session' ? record.conversation.sessionId : '',
+    cwd: record.cwd ?? '',
   }
 }
 
@@ -186,6 +189,7 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
     if (draft === undefined || saving) return
     setSaving(true)
     setFailure(undefined)
+    const cwd = draft.cwd.trim()
     const request = {
       name: draft.name.trim(),
       prompt: draft.prompt.trim(),
@@ -193,6 +197,7 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
       model: { provider: draft.provider, model: draft.model },
       permission: draft.permission,
       conversation: conversationOf(draft),
+      ...cwd === '' ? {} : { cwd },
     }
     const operation = editingId === undefined
       ? controller.create(request)
@@ -268,6 +273,7 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
                           <div><dt>{t('schedule')}</dt><dd>{scheduleLabel(record, t)}</dd></div>
                           <div><dt>{t('model')}</dt><dd>{modelLabel}</dd></div>
                           <div><dt>{t('permission')}</dt><dd>{permissionLabel}</dd></div>
+                          <div><dt>{t('cwd')}</dt><dd>{record.cwd ?? t('cwdDefault')}</dd></div>
                           <div>
                             <dt>{t('lastRun')}</dt>
                             <dd>
@@ -502,6 +508,15 @@ function Form(props: {
           )
           : null}
       </fieldset>
+
+      <label className={styles['field']}>
+        <span className={styles['fieldLabel']}>{t('cwd')}</span>
+        <Input
+          value={draft.cwd}
+          placeholder={t('cwdPlaceholder')}
+          onChange={(event) => { setDraft({ ...draft, cwd: event.target.value }) }}
+        />
+      </label>
 
       <div className={styles['formActions']}>
         <Button variant="outline" disabled={saving} onClick={onCancel}>

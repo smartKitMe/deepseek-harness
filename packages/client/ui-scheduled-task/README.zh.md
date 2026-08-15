@@ -2,11 +2,11 @@
 
 [English](README.md) | 中文
 
-一个用于管理持久定时任务的设置页面。它列出 `dsh-scheduled-task` 服务拥有的任务，并通过生成的 Remote 编辑它们：名称、提示词、cron 或固定间隔的执行频率、运行模型、权限预设，以及对话模式（每次新建会话、任务专属会话，或复用指定会话）。每一行还可以立即运行、启用/停用或删除任务。
+一个用于管理持久定时任务的设置页面。它列出 `dsh-scheduled-task` 服务拥有的任务，并通过生成的 Remote 编辑它们：名称、提示词、cron 或固定间隔的执行频率、运行模型、权限预设、对话模式（每次新建会话、任务专属会话，或复用指定会话），以及可选的工作目录绝对路径（留空使用宿主默认目录）。每一行还可以立即运行、启用/停用或删除任务。
 
 ## 组合
 
-此包注册一个 `settings.section` 条目（`id: scheduled-task`）。其浏览器半边需要 `slots`、`locale`、`connection` 和 `remote`；`scheduled-task` 命名空间由 `dsh-api-remotes` 客户端装配挂载。node 半边是空 apply —— 插件存在于宿主图中，这样它的 `dsh.client` 行就能被扫描进浏览器清单。
+此包注册一个 `settings.section` 条目（`id: scheduled-task`）。其浏览器半边需要 `slots`、`locale`、`connection`、`remote` 以及 `remote.scheduledTasks` 命名空间；该命名空间由 `dsh-api-remotes` 客户端装配挂载。node 半边是空 apply —— 插件存在于宿主图中，这样它的 `dsh.client` 行就能被扫描进浏览器清单。
 
 ## Model Experience
 

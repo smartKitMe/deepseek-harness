@@ -172,6 +172,19 @@ describe('ScheduledTaskService public contract', () => {
     await expect(ctx.scheduledTasks.create(createRequest({ conversation: { kind: 'session', sessionId: '  ' as never } }))).resolves.toEqual({
       ok: false, error: { code: 'invalid_conversation', message: 'reuse-session conversation needs a session id.' },
     })
+    await expect(ctx.scheduledTasks.create(createRequest({ cwd: 'relative/path' }))).resolves.toEqual({
+      ok: false, error: { code: 'invalid_cwd', message: 'working directory must be an absolute path.' },
+    })
+  })
+
+  it('stores an absolute cwd and omits a blank one', async () => {
+    const { ctx } = await harness()
+    const withCwd = await ctx.scheduledTasks.create(createRequest({ cwd: '  /srv/reports  ' }))
+    if (!withCwd.ok) throw new Error(withCwd.error.message)
+    expect(withCwd.value.cwd).toBe('/srv/reports')
+    const blank = await ctx.scheduledTasks.create(createRequest({ cwd: '   ' }))
+    if (!blank.ok) throw new Error(blank.error.message)
+    expect(blank.value.cwd).toBeUndefined()
   })
 
   it('creates with default enabled and trims model reasoning effort', async () => {
@@ -220,6 +233,7 @@ describe('ScheduledTaskService update', () => {
       model: { provider: 'p2', model: 'm2' },
       permission: 'danger-full-access',
       conversation: { kind: 'task-session' },
+      cwd: '/srv/reports',
     })
     if (!update.ok) throw new Error(update.error.message)
     expect(update.value).toMatchObject({
@@ -229,6 +243,7 @@ describe('ScheduledTaskService update', () => {
       model: { provider: 'p2', model: 'm2' },
       permission: 'danger-full-access',
       conversation: { kind: 'task-session' },
+      cwd: '/srv/reports',
     })
   })
 
@@ -264,6 +279,18 @@ describe('ScheduledTaskService update', () => {
     await expect(ctx.scheduledTasks.update({ id: task.id, conversation: { kind: 'session', sessionId: '' as never } })).resolves.toEqual({
       ok: false, error: { code: 'invalid_conversation', message: 'reuse-session conversation needs a session id.' },
     })
+    await expect(ctx.scheduledTasks.update({ id: task.id, cwd: 'relative' })).resolves.toEqual({
+      ok: false, error: { code: 'invalid_cwd', message: 'working directory must be an absolute path.' },
+    })
+  })
+
+  it('clears the cwd when updated with a blank value', async () => {
+    const { ctx } = await harness()
+    const create = await ctx.scheduledTasks.create(createRequest({ cwd: '/srv/reports' }))
+    if (!create.ok) throw new Error(create.error.message)
+    const update = await ctx.scheduledTasks.update({ id: create.value.id, cwd: '   ' })
+    if (!update.ok) throw new Error(update.error.message)
+    expect(update.value.cwd).toBeUndefined()
   })
 
   it('skips no-op writes for identical schedule, model, prompt, and conversation', async () => {

@@ -115,6 +115,18 @@ describe('runScheduledTask', () => {
     expect(h.flushed).toEqual([h.agents[0]?.session])
   })
 
+  it('uses the task cwd and falls back to the process cwd', async () => {
+    const withCwd = harness()
+    await runScheduledTask(withCwd.ctx, record({ cwd: '/srv/reports' }))
+    const meta = withCwd.created[0]?.options.meta as { cwd?: string } | undefined
+    expect(meta?.cwd).toBe('/srv/reports')
+
+    const withoutCwd = harness()
+    await runScheduledTask(withoutCwd.ctx, record())
+    const defaultMeta = withoutCwd.created[0]?.options.meta as { cwd?: string } | undefined
+    expect(defaultMeta?.cwd).toBe(process.cwd())
+  })
+
   it('resumes the dedicated session for a task-session conversation after the first run', async () => {
     const h = harness()
     const task = record({
