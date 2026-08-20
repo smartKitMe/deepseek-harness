@@ -8,26 +8,46 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutline16, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-web-react'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelProviderGroup } from '@deepseek-ai/dsh-api-remotes/client'
-import type { ConversationMode, ScheduledTaskRecord, ScheduleRule } from '@deepseek-ai/dsh-scheduled-task/client'
+import type {
+  ConversationMode, ScheduledTaskCreateRequest, ScheduledTaskRecord,
+  ScheduledTaskUpdateRequest, ScheduleRule,
+} from '@deepseek-ai/dsh-scheduled-task/client'
 import { messageOf } from './store.ts'
-import type { ScheduledTaskSettingsState, ScheduledTaskSettingsStore } from './store.ts'
+import type { ScheduledTaskSettingsState } from './store.ts'
 import type { en } from './locales.ts'
 import styles from './ScheduledTaskSection.module.css'
 
 /** Injected dependencies of {@link ScheduledTaskSection} (slot `inject`). */
 export interface ScheduledTaskSectionInjected {
-  /** The page store (loaded on mount, refreshed after every mutation). */
-  controller: ScheduledTaskSettingsStore
-  /** uSES subscription hook bound to the store. */
-  useSnapshot: SnapshotSelectorHook<ScheduledTaskSettingsState>
-  /** Section copy. */
-  t: (key: keyof typeof en) => string
+  hooks: {
+    /** Scheduled-task settings snapshot bound by the renderer as useScheduledTasks. */
+    scheduledTasks: SnapshotStore<ScheduledTaskSettingsState>
+  }
+  /** Load the page snapshot when the section first renders. */
+  load: () => Promise<void>
+  /** Create one task and refresh the list. */
+  create: (request: ScheduledTaskCreateRequest) => Promise<void>
+  /** Update one task and refresh the list. */
+  update: (request: ScheduledTaskUpdateRequest) => Promise<void>
+  /** Delete one task and refresh the list. */
+  remove: (id: ScheduledTaskRecord['id']) => Promise<void>
+  /** Enable or disable one task and refresh the list. */
+  setEnabled: (id: ScheduledTaskRecord['id'], enabled: boolean) => Promise<void>
+  /** Run one task now and refresh the list. */
+  runNow: (id: ScheduledTaskRecord['id']) => Promise<void>
 }
 
-/** Props delivered by the slot outlet: the inject face spread flat. */
-export type ScheduledTaskSectionProps = Partial<ScheduledTaskSectionInjected>
+/** Fully-composed props: the runtime and locale seats plus the bound inject face. */
+type LoadedProps =
+  PropsRuntime<'settings.section'>
+  & PropsLocale<'settings.scheduled-task'>
+  & InjectFace<ScheduledTaskSectionInjected>
+
+/** Props accepted by the shell gate; injected members are optional until the slot injects. */
+export type ScheduledTaskSectionProps = Partial<LoadedProps>
 
 /** A complete task form draft. */
 interface Draft {
@@ -127,18 +147,18 @@ function scheduleLabel(record: ScheduledTaskRecord, t: (key: keyof typeof en) =>
 
 /**
  * Render the scheduled-task settings section content column.
- * @param props - slot-delivered injected dependencies.
+ * @param props - slot-delivered composed props.
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ScheduledTaskSection(props: ScheduledTaskSectionProps): ReactNode {
-  const { controller, useSnapshot, t } = props
-  if (controller === undefined || useSnapshot === undefined || t === undefined) return null
-  return <Loaded injected={{ controller, useSnapshot, t }} />
+  const { load, useScheduledTasks, t } = props
+  if (load === undefined || useScheduledTasks === undefined || t === undefined) return null
+  return <Loaded {...(props as LoadedProps)} />
 }
 
-function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): ReactNode {
-  const { controller, t } = injected
-  const state = injected.useSnapshot(snapshot => snapshot)
+function Loaded(props: LoadedProps): ReactNode {
+  const { create, update, remove, setEnabled, runNow, load, t } = props
+  const state = props.useScheduledTasks(snapshot => snapshot)
   const [draft, setDraft] = useState<Draft | undefined>(undefined)
   const [editingId, setEditingId] = useState<ScheduledTaskRecord['id'] | undefined>(undefined)
   const [saving, setSaving] = useState(false)
@@ -147,14 +167,14 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
   const [deleting, setDeleting] = useState(false)
   const [actionId, setActionId] = useState<string | undefined>(undefined)
 
-  if (state.status === 'idle') void controller.load()
+  if (state.status === 'idle') void load()
   if (state.status === 'error') {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''
     return (
       <div className={styles['section']}>
         <p className={styles['error']}>{`${t('loadFailed')}: ${errorText}`}</p>
-        <button type="button" className={styles['secondaryButton']} onClick={() => { void controller.load() }}>
+        <button type="button" className={styles['secondaryButton']} onClick={() => { void load() }}>
           {t('retry')}
         </button>
       </div>
@@ -200,8 +220,8 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
       ...cwd === '' ? {} : { cwd },
     }
     const operation = editingId === undefined
-      ? controller.create(request)
-      : controller.update({ id: editingId, ...request })
+      ? create(request)
+      : update({ id: editingId, ...request })
     operation.then(
       () => {
         setDraft(undefined)
@@ -211,15 +231,15 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
     ).finally(() => { setSaving(false) })
   }
 
-  const runNow = (record: ScheduledTaskRecord): void => {
+  const runTask = (record: ScheduledTaskRecord): void => {
     setActionId(record.id)
-    void controller.runNow(record.id)
+    void runNow(record.id)
       .catch((error: unknown) => { setFailure(messageOf(error)) })
       .finally(() => { setActionId(undefined) })
   }
 
   const toggleEnabled = (record: ScheduledTaskRecord): void => {
-    void controller.setEnabled(record.id, !record.enabled)
+    void setEnabled(record.id, !record.enabled)
       .catch((error: unknown) => { setFailure(messageOf(error)) })
   }
 
@@ -233,7 +253,7 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
     /* v8 ignore next -- the confirm control only renders with a target and is disabled while deleting */
     if (deleteTarget === undefined || deleting) return
     setDeleting(true)
-    void controller.remove(deleteTarget.id)
+    void remove(deleteTarget.id)
       .then(() => { setDeleteTarget(undefined) })
       .catch((error: unknown) => { setFailure(messageOf(error)) })
       .finally(() => { setDeleting(false) })
@@ -289,7 +309,7 @@ function Loaded({ injected }: { injected: ScheduledTaskSectionInjected }): React
                           <button
                             type="button"
                             className={styles['secondaryButton']}
-                            onClick={() => { runNow(record) }}
+                            onClick={() => { runTask(record) }}
                           >
                             {actionId === record.id ? t('running') : t('runNow')}
                           </button>

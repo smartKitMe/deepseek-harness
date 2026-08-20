@@ -14,9 +14,9 @@ import { cleanup } from '@testing-library/react'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
 import { ScheduledTaskSection } from '../src/client/ScheduledTaskSection.tsx'
 import type { ScheduledTaskSectionInjected } from '../src/client/ScheduledTaskSection.tsx'
-import { ScheduledTaskSettingsStore } from '../src/client/store.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
@@ -47,6 +47,8 @@ async function bench() {
     setEnabled: vi.fn(),
     runNow: vi.fn(),
   } as never)
+  // The plugin injects the cordis settingsSchema service the store consumes.
+  new SettingsSchemaService(ctx)
 
   const slots = ctx.get('slots') as SlotRegistry
   const undeclare = slots.register(
@@ -68,7 +70,7 @@ function entry(slots: SlotRegistry) {
 
 describe('ui-scheduled-task browser plugin', () => {
   it('declares the services it uses', () => {
-    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.scheduledTasks'])
+    expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.scheduledTasks', 'settingsSchema'])
   })
 
   it('registers the section with its id, order, and inject face', async () => {
@@ -79,10 +81,13 @@ describe('ui-scheduled-task browser plugin', () => {
     expect(found).toBeDefined()
     expect(found?.options).toMatchObject({ id: 'scheduled-task', order: 40 })
     const face = (found?.inject as unknown as () => ScheduledTaskSectionInjected)()
-    expect(face.controller).toBeInstanceOf(ScheduledTaskSettingsStore)
-    expect(face.useSnapshot).toBeTypeOf('function')
-    expect(face.t).toBeTypeOf('function')
-    expect(face.t('nav')).toBe('定时任务')
+    expect(face.hooks.scheduledTasks).toBeDefined()
+    expect(face.load).toBeTypeOf('function')
+    expect(face.create).toBeTypeOf('function')
+    expect(face.update).toBeTypeOf('function')
+    expect(face.remove).toBeTypeOf('function')
+    expect(face.setEnabled).toBeTypeOf('function')
+    expect(face.runNow).toBeTypeOf('function')
   })
 
   it('keeps the nav label following the active locale', async () => {

@@ -5,7 +5,6 @@
  * writes through the Remote and reloads the list.
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 // Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
@@ -37,8 +36,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 /** Dictionary namespace owned by this plugin. */
 const NS = 'settings.scheduled-task'
 
-/** Required services for the section: slot registration, copy, and the Remote + connection. */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.scheduledTasks']
+/** Required services for the section: slot registration, copy, the Remote + connection, and settings schema. */
+export const inject = ['slots', 'locale', 'connection', 'remote', 'remote.scheduledTasks', 'settingsSchema']
 
 /**
  * Client plugin body: register the scheduled-task settings section.
@@ -49,16 +48,24 @@ export function apply(ctx: ClientContext): void {
 
   const connection = ctx.get('connection') as ConnectionHandle
   const remote: ScheduledTasksRemote = ctx.remote.scheduledTasks
-  const controller = new ScheduledTaskSettingsStore(remote, connection.api)
-  const useSnapshot = bindSnapshotSelector(controller.store)
-  const t = ctx.locale.bind(NS) as ScheduledTaskSectionInjected['t']
-  const injected = (): ScheduledTaskSectionInjected => ({ controller, useSnapshot, t })
+  const controller = new ScheduledTaskSettingsStore(remote, connection.api, ctx.settingsSchema)
+  const t = ctx.locale.bind(NS)
+  const injected = (): ScheduledTaskSectionInjected => ({
+    hooks: { scheduledTasks: controller.store },
+    load: () => controller.load(),
+    create: request => controller.create(request),
+    update: request => controller.update(request),
+    remove: id => controller.remove(id),
+    setEnabled: (id, enabled) => controller.setEnabled(id, enabled),
+    runNow: id => controller.runNow(id),
+  })
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'scheduled-task',
     order: 40,
     label: () => t('nav'),
+    locale: 'settings.scheduled-task',
     inject: injected,
   }, ScheduledTaskSection))
 }

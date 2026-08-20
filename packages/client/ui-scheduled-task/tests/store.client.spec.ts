@@ -1,8 +1,10 @@
 // @vitest-environment node
+import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import type {
   ModelProviderGroup, SettingsNamespaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import { SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/src/client/schema.ts'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
   ScheduledTaskListResult, ScheduledTaskRecord,
@@ -10,6 +12,9 @@ import type {
 import {
   ScheduledTaskSettingsStore, messageOf, permissionOptionsOf, unwrap,
 } from '../src/client/store.ts'
+
+/** A real settings schema service over the fresh test context. */
+const schema = new SettingsSchemaService(new Context())
 
 /** A serialized schemastery union of const choices over the permission presets. */
 const permissionSchema = {
@@ -34,14 +39,14 @@ function permissionView(): SettingsNamespaceView {
 
 describe('permissionOptionsOf', () => {
   it('reads preset ids and labels from the settings schema', () => {
-    expect(permissionOptionsOf(permissionView())).toEqual([
+    expect(permissionOptionsOf(permissionView(), schema)).toEqual([
       { id: 'workspace-write', label: 'Workspace write' },
       { id: 'danger-full-access', label: 'Full access' },
     ])
   })
 
   it('returns an empty list when the namespace is absent', () => {
-    expect(permissionOptionsOf(undefined)).toEqual([])
+    expect(permissionOptionsOf(undefined, schema)).toEqual([])
   })
 
   it('returns an empty list when the defaultPreset node is missing', () => {
@@ -49,7 +54,7 @@ describe('permissionOptionsOf', () => {
       ns: 'permission',
       schema: { uid: 1, refs: { 1: { type: 'object', dict: {} } } },
       value: {},
-    } as unknown as SettingsNamespaceView)).toEqual([])
+    } as unknown as SettingsNamespaceView, schema)).toEqual([])
   })
 
   it('skips non-const choices and falls back to the id as a label', () => {
@@ -66,7 +71,7 @@ describe('permissionOptionsOf', () => {
         },
       },
       value: {},
-    } as unknown as SettingsNamespaceView)).toEqual([
+    } as unknown as SettingsNamespaceView, schema)).toEqual([
       { id: 'a', label: 'a' },
       { id: 'b', label: 'b' },
     ])
@@ -83,7 +88,7 @@ describe('permissionOptionsOf', () => {
         },
       },
       value: {},
-    } as unknown as SettingsNamespaceView)).toEqual([])
+    } as unknown as SettingsNamespaceView, schema)).toEqual([])
   })
 
   it('reads a single non-union const default', () => {
@@ -97,7 +102,7 @@ describe('permissionOptionsOf', () => {
         },
       },
       value: {},
-    } as unknown as SettingsNamespaceView)).toEqual([
+    } as unknown as SettingsNamespaceView, schema)).toEqual([
       { id: 'only', label: 'Only' },
     ])
   })
@@ -196,6 +201,7 @@ function makeStore(remote: RemoteSpies, api = makeApi()) {
   const controller = new ScheduledTaskSettingsStore(
     remote as unknown as ConstructorParameters<typeof ScheduledTaskSettingsStore>[0],
     api.api as unknown as ConstructorParameters<typeof ScheduledTaskSettingsStore>[1],
+    schema,
   )
   return { controller, api }
 }

@@ -8,12 +8,12 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
+import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ScheduledTaskRecord } from '@deepseek-ai/dsh-scheduled-task/client'
 import { ScheduledTaskSection } from '../src/client/ScheduledTaskSection.tsx'
 import type { ScheduledTaskSectionProps } from '../src/client/ScheduledTaskSection.tsx'
-import type { ScheduledTaskSettingsState, ScheduledTaskSettingsStore } from '../src/client/store.ts'
+import type { ScheduledTaskSettingsState } from '../src/client/store.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -81,9 +81,13 @@ function makeActions(): Actions {
 function renderSection(state: Partial<ScheduledTaskSettingsState> = {}, actions = makeActions()) {
   const store = createSnapshotStore<ScheduledTaskSettingsState>({ ...READY, ...state })
   const props = {
-    ...actions,
-    controller: actions as unknown as ScheduledTaskSettingsStore,
-    useSnapshot: bindSnapshotSelector(store),
+    load: actions.load,
+    create: actions.create,
+    update: actions.update,
+    remove: actions.remove,
+    setEnabled: actions.setEnabled,
+    runNow: actions.runNow,
+    useScheduledTasks: bindSnapshotSelector(store),
     t: (key: keyof typeof zh) => zh[key],
   } as unknown as ScheduledTaskSectionProps
   render(<ScheduledTaskSection {...props} />)

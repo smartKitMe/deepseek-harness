@@ -30,8 +30,7 @@ import type {
   ScheduledTaskUpdateResult,
   ScheduleRule,
 } from '@deepseek-ai/dsh-scheduled-task/client'
-import { nodeAtPath, rehydrateSchema } from '@deepseek-ai/dsh-client-schema-form'
-import type { SchemaNode } from '@deepseek-ai/dsh-client-schema-form'
+import type { SchemaNode, SettingsSchemaService } from '@deepseek-ai/dsh-client-ui-settings/client'
 
 /** The scheduled-task Remote namespace the section reads and writes through. */
 export interface ScheduledTasksRemote {
@@ -87,11 +86,12 @@ interface ConstChoice {
  * Read the permission preset names encoded by the host's `defaultPreset`
  * settings schema, mirroring the permission-presets settings row.
  * @param view - the permission namespace descriptor, when mounted.
+ * @param schema - settings-owned schema operations rehydrating the descriptor.
  * @returns selectable presets, or an empty list when the namespace is absent.
  */
-export function permissionOptionsOf(view: SettingsNamespaceView | undefined): PermissionOption[] {
+export function permissionOptionsOf(view: SettingsNamespaceView | undefined, schema: SettingsSchemaService): PermissionOption[] {
   if (view === undefined) return []
-  const node = nodeAtPath(rehydrateSchema(view.schema), ['defaultPreset'])
+  const node = schema.nodeAtPath(schema.rehydrate(view.schema), ['defaultPreset'])
   if (node === undefined) return []
   const rawChoices = node.type === 'union'
     ? (node.list as SchemaNode[] | undefined) ?? []
@@ -140,10 +140,12 @@ export class ScheduledTaskSettingsStore {
   /**
    * @param remote - the scheduled-task Remote namespace.
    * @param api - the wire face for the model catalog and settings namespace.
+   * @param schema - settings-owned schema operations rehydrating the descriptor.
    */
   constructor(
     private readonly remote: ScheduledTasksRemote,
     private readonly api: Pick<IApiClient, 'llm' | 'settings'>,
+    private readonly schema: SettingsSchemaService,
   ) {}
 
   /**
@@ -168,7 +170,7 @@ export class ScheduledTaskSettingsStore {
       modelGroups = modelsResponse.result.value.groups
       if (!settingsResponse.result.ok) throw new Error(settingsResponse.result.error.message)
       const view = settingsResponse.result.value.namespaces.find(entry => entry.ns === PERMISSION_SETTINGS_NS)
-      permissions = permissionOptionsOf(view)
+      permissions = permissionOptionsOf(view, this.schema)
     } catch (error) {
       if (generation !== this.generation) return
       this.store.update((s) => {
